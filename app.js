@@ -409,7 +409,9 @@
       renderJournal();
       $('runMeta').textContent = `round ${i}/${run.rounds.length - 1} · seed ${seed} · ${E.ARTISTS[S.artist].name}` +
         (S.audition ? ' · auditioning two bars…' : '');
-      if (S.audition && i > 0) Audio.playWindow(0, AUDITION_BEATS);
+      const canSound = !navigator.userActivation || navigator.userActivation.hasBeenActive;
+      if (S.audition && i > 0 && canSound) Audio.playWindow(0, AUDITION_BEATS);
+      else if (S.audition && i > 0 && i === 1) $('runMeta').textContent += ' · (audio needs one click/keypress — browser autoplay law)';
       await wait(i === 0 ? 600 : 5600);
       if (S.run !== run) return; // superseded
     }
