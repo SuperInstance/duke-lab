@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DUKE LAB — a GAN with words</title>
+<meta name="description" content="Grow the musician, not the song. A generator plays, a critic measures, the argument converges in golden ratio. Built on Plainsong.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+  /* DUKE LAB — Reid Miles record-sleeve discipline meets a darkened studio.
+     One accent: brass. One rule: everything on the grid earns its place. */
+  :root {
+    --ink: #0b0d10;
+    --ink2: #10141a;
+    --ink3: #161b23;
+    --line: #232a35;
+    --paper: #e8e4da;
+    --paper-dim: #9a958a;
+    --brass: #d4a94e;
+    --brass-hi: #f0cd7f;
+    --brass-dim: #6b5a33;
+    --red: #c75b4f;
+    --teal: #5ba8a0;
+    --mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    --disp: 'Space Grotesk', 'Helvetica Neue', Arial, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--ink); color: var(--paper);
+    font-family: var(--disp); font-size: 15px; line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection { background: var(--brass); color: var(--ink); }
+  a { color: var(--brass); text-decoration: none; border-bottom: 1px solid var(--brass-dim); }
+  a:hover { color: var(--brass-hi); border-bottom-color: var(--brass-hi); }
+
+  .wrap { max-width: 1240px; margin: 0 auto; padding: 0 24px; }
+
+  /* ------------------------------- hero ------------------------------- */
+  header.hero {
+    padding: 72px 0 40px;
+    border-bottom: 1px solid var(--line);
+    background:
+      radial-gradient(ellipse 900px 480px at 78% -10%, rgba(212,169,78,.08), transparent 60%),
+      radial-gradient(ellipse 700px 400px at 10% 110%, rgba(91,168,160,.05), transparent 60%),
+      var(--ink);
+  }
+  .kicker {
+    font-family: var(--mono); font-size: 11px; letter-spacing: .32em;
+    color: var(--brass); text-transform: uppercase; margin-bottom: 18px;
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  }
+  .kicker .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--brass); box-shadow: 0 0 10px var(--brass); }
+  .badge {
+    font-family: var(--mono); font-size: 10px; letter-spacing: .18em;
+    border: 1px solid var(--line); padding: 3px 10px; border-radius: 999px; color: var(--paper-dim);
+  }
+  .badge.live { color: var(--teal); border-color: var(--teal); }
+  h1 {
+    font-size: clamp(52px, 9vw, 118px); line-height: .92; font-weight: 700;
+    letter-spacing: -0.03em; text-transform: uppercase;
+  }
+  h1 .thin { color: var(--paper-dim); font-weight: 400; }
+  .lede { max-width: 640px; margin-top: 22px; font-size: 17px; color: var(--paper-dim); }
+  .lede em { color: var(--paper); font-style: normal; border-bottom: 1px solid var(--brass-dim); }
+  .hero-row { display: flex; gap: 16px; margin-top: 30px; flex-wrap: wrap; align-items: center; }
+
+  button {
+    font-family: var(--mono); font-size: 12px; letter-spacing: .14em; text-transform: uppercase;
+    background: transparent; color: var(--paper); border: 1px solid var(--line);
+    padding: 11px 20px; border-radius: 3px; cursor: pointer; transition: all .15s ease;
+  }
+  button:hover { border-color: var(--brass); color: var(--brass-hi); }
+  button.primary { background: var(--brass); color: var(--ink); border-color: var(--brass); font-weight: 600; }
+  button.primary:hover { background: var(--brass-hi); border-color: var(--brass-hi); color: var(--ink); }
+  button:disabled { opacity: .35; cursor: not-allowed; }
+  button:disabled:hover { border-color: var(--line); color: var(--paper); }
+
+  .seedbox { display: flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 12px; }
+  .seedbox input {
+    background: var(--ink2); border: 1px solid var(--line); color: var(--brass-hi);
+    font-family: var(--mono); font-size: 12px; padding: 10px 12px; border-radius: 3px; width: 220px;
+    outline: none;
+  }
+  .seedbox input:focus { border-color: var(--brass); }
+
+  /* ----------------------------- the ask ------------------------------ */
+  section.ask { padding: 34px 0; border-bottom: 1px solid var(--line); background: var(--ink2); }
+  .ask-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+  @media (max-width: 900px) { .ask-grid { grid-template-columns: 1fr; } }
+  .group-label { font-family: var(--mono); font-size: 10px; letter-spacing: .28em; color: var(--paper-dim); text-transform: uppercase; margin-bottom: 12px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    font-family: var(--mono); font-size: 12px; padding: 9px 16px; border-radius: 999px;
+    border: 1px solid var(--line); cursor: pointer; color: var(--paper-dim); user-select: none;
+    transition: all .15s ease;
+  }
+  .chip:hover { border-color: var(--brass-dim); color: var(--paper); }
+  .chip.on { background: var(--brass); border-color: var(--brass); color: var(--ink); font-weight: 600; }
+  .chip.persona.on { background: transparent; border-color: var(--brass); color: var(--brass-hi); }
+  .ask-line { display: flex; gap: 10px; }
+  .ask-line input {
+    flex: 1; background: var(--ink); border: 1px solid var(--line); color: var(--paper);
+    font-family: var(--mono); font-size: 13px; padding: 11px 14px; border-radius: 3px; outline: none;
+  }
+  .ask-line input:focus { border-color: var(--brass); }
+  #askStatus { font-family: var(--mono); font-size: 11px; color: var(--teal); margin-top: 8px; min-height: 16px; }
+
+  /* ----------------------------- studio ------------------------------- */
+  section.studio { padding: 40px 0 56px; }
+  .studio-head { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 12px; margin-bottom: 22px; }
+  h2 { font-size: clamp(26px, 4vw, 40px); font-weight: 700; letter-spacing: -0.02em; text-transform: uppercase; }
+  h2 .thin { color: var(--paper-dim); font-weight: 400; }
+  .stage {
+    display: grid; grid-template-columns: 250px 1fr 300px; gap: 18px;
+  }
+  @media (max-width: 1080px) { .stage { grid-template-columns: 1fr; } }
+  .panel {
+    background: var(--ink2); border: 1px solid var(--line); border-radius: 6px;
+    padding: 18px; min-width: 0;
+  }
+  .panel h3 {
+    font-family: var(--mono); font-size: 10px; letter-spacing: .28em; color: var(--brass);
+    text-transform: uppercase; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center;
+  }
+  .panel h3 .sub { color: var(--paper-dim); letter-spacing: .1em; }
+
+  /* fingers: parameter sliders */
+  .slider-row { display: grid; grid-template-columns: 1fr 92px; gap: 8px; align-items: center; margin-bottom: 7px; }
+  .slider-row .lbl { font-family: var(--mono); font-size: 9.5px; letter-spacing: .06em; color: var(--paper-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .slider-row .val { height: 7px; background: var(--ink); border-radius: 4px; position: relative; overflow: hidden; }
+  .slider-row .val i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--teal); border-radius: 4px; transition: width .5s cubic-bezier(.2,.8,.2,1); }
+  .slider-row.attacked .val i { background: var(--brass); box-shadow: 0 0 8px var(--brass); }
+  .slider-row .tgt { position: absolute; top: -2px; bottom: -2px; width: 2px; background: var(--paper-dim); opacity: .6; }
+
+  /* center: notation + piano roll */
+  .center-col { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+  #notation {
+    font-family: var(--mono); font-size: 11.5px; line-height: 1.55; white-space: pre; overflow-x: auto;
+    color: var(--paper-dim); min-height: 260px;
+  }
+  #notation .tok { color: var(--paper); }
+  #notation .chg { color: var(--brass-hi); background: rgba(212,169,78,.12); border-radius: 2px; }
+  #notation .head { color: var(--brass); font-weight: 600; }
+  #notation .meta { color: var(--teal); }
+  #pianoroll { width: 100%; height: 190px; display: block; background: var(--ink); border-radius: 4px; }
+  .transport { display: flex; gap: 10px; align-items: center; margin-top: 12px; flex-wrap: wrap; }
+  .transport .time { font-family: var(--mono); font-size: 11px; color: var(--paper-dim); margin-left: auto; }
+  .exports { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  /* eye: radar + sigma + verdicts */
+  #radar { width: 100%; height: 240px; display: block; }
+  .sigma-big { text-align: center; margin: 10px 0 4px; }
+  .sigma-big .num { font-size: 44px; font-weight: 700; font-family: var(--disp); color: var(--paper); letter-spacing: -0.02em; }
+  .sigma-big .cap { font-family: var(--mono); font-size: 9.5px; letter-spacing: .3em; color: var(--paper-dim); text-transform: uppercase; }
+  #sigmaPath { width: 100%; height: 54px; display: block; margin-top: 8px; }
+  #verdicts { list-style: none; margin-top: 14px; display: flex; flex-direction: column; gap: 8px; }
+  #verdicts li {
+    font-family: var(--mono); font-size: 11px; color: var(--paper-dim);
+    border-left: 2px solid var(--brass-dim); padding-left: 10px; line-height: 1.45;
+  }
+  #verdicts li.hot { border-left-color: var(--brass); color: var(--paper); }
+
+  /* timeline + journal */
+  .below-stage { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 18px; }
+  @media (max-width: 900px) { .below-stage { grid-template-columns: 1fr; } }
+  #timeline { display: flex; gap: 8px; flex-wrap: wrap; }
+  .rchip {
+    font-family: var(--mono); font-size: 11px; padding: 8px 12px; border-radius: 3px;
+    border: 1px solid var(--line); cursor: pointer; color: var(--paper-dim);
+  }
+  .rchip:hover { border-color: var(--brass-dim); color: var(--paper); }
+  .rchip.cur { border-color: var(--brass); color: var(--brass-hi); background: rgba(212,169,78,.08); }
+  .rchip.best { box-shadow: inset 0 -2px 0 var(--teal); }
+  #journal {
+    font-family: var(--mono); font-size: 11.5px; line-height: 1.7; color: var(--paper-dim);
+    max-height: 220px; overflow-y: auto; white-space: pre-wrap;
+  }
+  #journal .r { color: var(--brass); }
+  #journal .swap { color: var(--teal); }
+  #verdictBanner {
+    margin-top: 18px; padding: 20px 24px; border-radius: 6px; display: none;
+    border: 1px solid var(--brass-dim); background: linear-gradient(180deg, rgba(212,169,78,.09), rgba(212,169,78,.03));
+  }
+  #verdictBanner.show { display: block; }
+  #verdictBanner .v-title { font-size: 22px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--brass-hi); }
+  #verdictBanner .v-body { margin-top: 8px; color: var(--paper-dim); font-size: 14px; max-width: 720px; }
+  #verdictBanner.gap { border-color: var(--line); background: var(--ink2); }
+  #verdictBanner.gap .v-title { color: var(--paper); }
+
+  .blind { margin-top: 18px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  #blindResult { font-family: var(--mono); font-size: 12px; color: var(--teal); }
+
+  /* doctrine + fleet */
+  section.doctrine { padding: 56px 0; border-top: 1px solid var(--line); background: var(--ink2); }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 18px; margin-top: 26px; }
+  .card { border: 1px solid var(--line); border-radius: 6px; padding: 22px; background: var(--ink); }
+  .card h4 { font-size: 17px; margin-bottom: 10px; color: var(--paper); }
+  .card h4 span { color: var(--brass); }
+  .card p { font-size: 13.5px; color: var(--paper-dim); }
+  .card .src { margin-top: 12px; font-family: var(--mono); font-size: 10px; color: var(--brass-dim); letter-spacing: .1em; }
+  section.fleet { padding: 56px 0; border-top: 1px solid var(--line); }
+  .fleet-grid { display: grid; grid-template-columns: 1.2fr .8fr; gap: 28px; margin-top: 26px; }
+  @media (max-width: 900px) { .fleet-grid { grid-template-columns: 1fr; } }
+  .endpoint { font-family: var(--mono); font-size: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); display: flex; gap: 14px; }
+  .endpoint .m { color: var(--teal); min-width: 44px; }
+  .endpoint .p { color: var(--brass-hi); min-width: 88px; }
+  .endpoint .d { color: var(--paper-dim); }
+  .worker-setup { display: flex; gap: 8px; margin-top: 14px; }
+  .worker-setup input { flex: 1; background: var(--ink2); border: 1px solid var(--line); color: var(--paper); font-family: var(--mono); font-size: 12px; padding: 10px 12px; border-radius: 3px; outline: none; }
+  #workerStatus { font-family: var(--mono); font-size: 11px; color: var(--paper-dim); margin-top: 10px; }
+
+  footer { padding: 30px 0 60px; border-top: 1px solid var(--line); color: var(--paper-dim); font-family: var(--mono); font-size: 11px; line-height: 1.8; }
+  .pulse { animation: pulse 2.4s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="kicker">
+      <span class="dot pulse"></span>
+      SuperInstance · Plainsong Instrument
+      <span class="badge" id="modeBadge">LOCAL SEED MODE</span>
+    </div>
+    <h1>Duke <span class="thin">Lab</span></h1>
+    <p class="lede">A <em>GAN with words</em>: a generator plays an unheard take, a critic measures it against a
+      sixteen-feature ruler, and the argument converges in golden ratio — until the critic can no longer tell
+      whether this is a song he simply hasn’t heard before. Grow the musician. The song is the receipt.</p>
+    <div class="hero-row">
+      <button class="primary" id="btnBeginHero">Begin the argument</button>
+      <div class="seedbox">
+        <span style="color:var(--paper-dim)">seed</span>
+        <input id="seedInput" spellcheck="false" value="cresleigh/8th">
+        <button id="btnReroll" title="honest dice">re-roll</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<section class="ask">
+  <div class="wrap ask-grid">
+    <div>
+      <div class="group-label">1 · The canon — who should the player become?</div>
+      <div class="chips" id="artistChips">
+        <span class="chip on" data-artist="duke">DUKE ELLINGTON</span>
+        <span class="chip" data-artist="evans">BILL EVANS</span>
+        <span class="chip" data-artist="monk">THELONIOUS MONK</span>
+      </div>
+      <div class="group-label" style="margin-top:22px">2 · The gardener — whose ear judges? <span style="text-transform:none;letter-spacing:0">(the loss function is swappable)</span></div>
+      <div class="chips" id="personaChips">
+        <span class="chip persona on" data-persona="purist">THE PURIST</span>
+        <span class="chip persona" data-persona="engineer">THE ENGINEER</span>
+        <span class="chip persona" data-persona="romantic">THE ROMANTIC</span>
+        <span class="chip persona" data-persona="historian">THE HISTORIAN</span>
+      </div>
+    </div>
+    <div>
+      <div class="group-label">3 · The ask — lean in and say what you want to hear</div>
+      <div class="ask-line">
+        <input id="askInput" placeholder="moodier, more space, swing harder, angular…" spellcheck="false">
+        <button id="btnAsk">Lean in</button>
+      </div>
+      <div id="askStatus"></div>
+      <div style="margin-top:18px; display:flex; gap:10px; flex-wrap:wrap;">
+        <button id="btnBegin">Run the argument</button>
+        <button id="btnStep">Step one round</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="studio">
+  <div class="wrap">
+    <div class="studio-head">
+      <h2>The <span class="thin">studio</span></h2>
+      <div style="font-family:var(--mono); font-size:11px; color:var(--paper-dim)" id="runMeta">no run yet — the player is warming up</div>
+    </div>
+
+    <div class="stage">
+      <!-- THE FINGERS -->
+      <div class="panel">
+        <h3>The Fingers <span class="sub">generator</span></h3>
+        <div id="sliders"></div>
+      </div>
+
+      <!-- CENTER: NOTATION + ROLL -->
+      <div class="center-col">
+        <div class="panel">
+          <h3>The Take <span class="sub">plainsong .song</span></h3>
+          <div id="notation">// the take appears here, round by round. changed tokens glow brass.</div>
+          <canvas id="pianoroll"></canvas>
+          <div class="transport">
+            <button id="btnPlay">▶ play take</button>
+            <button id="btnStop">■ stop</button>
+            <span class="time" id="timeLabel">00.0 / 00.0</span>
+            <div class="exports" style="margin-left:8px">
+              <button id="btnSong">.song</button>
+              <button id="btnMidi">.mid</button>
+              <button id="btnCopy">copy</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- THE EYE -->
+      <div class="panel">
+        <h3>The Eye <span class="sub" id="personaName">THE PURIST</span></h3>
+        <canvas id="radar"></canvas>
+        <div class="sigma-big">
+          <div class="num" id="sigmaNow">—</div>
+          <div class="cap">σ · distance to canon</div>
+        </div>
+        <canvas id="sigmaPath"></canvas>
+        <ul id="verdicts"></ul>
+      </div>
+    </div>
+
+    <div class="below-stage">
+      <div class="panel">
+        <h3>Rounds <span class="sub">the argument</span></h3>
+        <div id="timeline"></div>
+        <div class="blind">
+          <button id="btnBlind">Blind test</button>
+          <span id="blindResult">can you tell the rounds apart? two 4-bar excerpts, guess which is later.</span>
+        </div>
+        <div id="verdictBanner"><div class="v-title"></div><div class="v-body"></div></div>
+      </div>
+      <div class="panel">
+        <h3>Referee’s Log <span class="sub">log.jsonl</span></h3>
+        <div id="journal">// the referee narrates each round here. the trace, not the vibe.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="doctrine">
+  <div class="wrap">
+    <h2>What this <span class="thin">is</span></h2>
+    <div class="cards">
+      <div class="card">
+        <h4><span>◆</span> The Grown Musician</h4>
+        <p>Don’t ship the MIDI — ship the thing that produced it. Style as a skill in the bag: the player
+          <em>does</em> it on demand. This lab grows that musician in front of you: sixteen parameters, walked
+          by an argument, seed to seal reproducible.</p>
+        <div class="src">AI-Writings · philosophy/the-grown-musician.md</div>
+      </div>
+      <div class="card">
+        <h4><span>◆</span> The Golden Residue</h4>
+        <p>Critique-novelty compresses toward 1/φ ≈ 0.618 per round: golden-section shrinkage, oscillating,
+          never landing. What remains when the argument stalls is the style itself — the part the medium
+          cannot express is the part that makes it alive.</p>
+        <div class="src">AI-Writings · philosophy/the-golden-residue.md</div>
+      </div>
+      <div class="card">
+        <h4><span>◆</span> The Fakebook Theorem</h4>
+        <p>The referee is a compiler with a 16-feature gate: σ-normalized distance to the canon centroid,
+          judged on the per-note trace — never on a summary. A two-channel summary would have stopped the
+          Duke experiment at stitch 4 and called the rest regression.</p>
+        <div class="src">AI-Writings · philosophy/the-fakebook-theorem.md · the-summary-law.md</div>
+      </div>
+      <div class="card">
+        <h4><span>◆</span> Plainsong</h4>
+        <p>The notation is plain text that compiles to MIDI and embeds in markdown like mermaid. One velocity
+          per row — the medium’s floor, honored here as law. Export the take, compile it for real:
+          <span style="font-family:var(--mono); font-size:12px">plainsong compile take.song</span></p>
+        <div class="src">SuperInstance/plainsong · v1.6 · 6,325 notation sources</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="fleet">
+  <div class="wrap">
+    <h2>The fleet <span class="thin">behind it</span></h2>
+    <p style="margin-top:14px; color:var(--paper-dim); max-width:640px">The instrument is fully honest on local seeded dice — that is the point. Point it at a
+      Cloudflare Worker and the same UI upgrades: the ask is parsed by a model, critic lines are written by
+      an ear that has read the fakebooks, and the canon centroids come from a live vector index.</p>
+    <div class="fleet-grid">
+      <div>
+        <div class="endpoint"><span class="m">GET</span><span class="p">/health</span><span class="d">mode badge · are we live?</span></div>
+        <div class="endpoint"><span class="m">POST</span><span class="p">/api/ask</span><span class="d">free-text desire → 16-feature deltas (LLM replaces the lexicon)</span></div>
+        <div class="endpoint"><span class="m">POST</span><span class="p">/api/round</span><span class="d">take + critiques → critic’s prose, LLM-polished</span></div>
+        <div class="endpoint"><span class="m">GET</span><span class="p">/api/targets</span><span class="d">artist centroids (static JSON today; Vectorize tomorrow)</span></div>
+        <div class="endpoint"><span class="m">POST</span><span class="p">/api/compile</span><span class="d">pipe .song through real plainsong → MIDI bytes (stretch)</span></div>
+      </div>
+      <div>
+        <div class="group-label">worker endpoint</div>
+        <div class="worker-setup">
+          <input id="workerUrl" placeholder="https://duke-lab.<subdomain>.workers.dev" spellcheck="false">
+          <button id="btnWorkerSave">save</button>
+        </div>
+        <div id="workerStatus">no worker set — running on honest local dice (seed-verifiable).</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    DUKE LAB · a SuperInstance instrument · engine <span id="footSeed">—</span><br>
+    seeded determinism: same seed, same argument, byte for byte · the song is the receipt · the residue is the style<br>
+    <a href="https://github.com/SuperInstance/plainsong">plainsong</a> ·
+    <a href="https://github.com/SuperInstance">SuperInstance</a> ·
+    <span style="color:var(--brass-dim)">references: Reid Miles sleeves · Dieter Rams · the duke-lab journal, 2026-08-25</span>
+  </div>
+</footer>
+
+<script src="engine.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

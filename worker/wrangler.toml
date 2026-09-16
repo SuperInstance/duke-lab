@@ -1,0 +1,13 @@
+name = "duke-lab"
+main = "index.js"
+compatibility_date = "2025-01-01"
+
+# Single-command deploy of the whole instrument:
+#   npx wrangler deploy
+# Static site lives in ./public (copy index.html, app.js, engine.js there),
+# API routes live in this worker. Set the model key for the live ear:
+#   npx wrangler secret put OPENAI_API_KEY
+# (OPENAI_BASE_URL / OPENAI_MODEL are optional; defaults OpenAI gpt-4o-mini)
+
+[assets]
+directory = "./public"

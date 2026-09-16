@@ -1,0 +1,10 @@
+{
+  "name": "duke-lab",
+  "version": "1.0.0",
+  "description": "A GAN with words — grow the musician, not the song. Plainsong instrument.",
+  "scripts": {
+    "test": "node tests/engine.test.js",
+    "serve": "python3 -m http.server 8923"
+  },
+  "license": "MIT"
+}
