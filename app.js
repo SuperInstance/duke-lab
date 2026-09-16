@@ -21,6 +21,7 @@
     stepCount: 0,
     blind: null,
     fleetLive: false,
+    audition: true,
   };
   const BEAT_SEC = 60 / 96; // engine tempo is 96
 
@@ -130,31 +131,28 @@
       src.start(t); src.stop(t + 0.3);
     },
     events() { const r = currentRound(); return r ? r.events : []; },
-    play(fromBeat) {
+    play(fromBeat) { this.playWindow(fromBeat || 0, 64 - (fromBeat || 0)); },
+    playWindow(fromBeat, beats) {
       this.ensure(); this.ctx.resume();
       this.stop();
-      this.startBeat = fromBeat || 0;
+      this.startBeat = fromBeat;
       this.startTime = this.ctx.currentTime + 0.08;
       S.playing = true;
       $('btnPlay').textContent = '❚❚ playing';
-      const evs = this.events();
+      const evs = this.events().filter(e => e.t >= fromBeat && e.t < fromBeat + beats);
       const swing = currentRound() ? currentRound().params.swingFeel * 0.33 : 0.15;
-      // schedule ahead: brute-force, the take is short
       evs.forEach(e => {
-        if (e.t < this.startBeat) return;
-        this.voice(this.startTime + (e.t - this.startBeat) * BEAT_SEC, e.dur, e.midi, e.vel, e.voice === 'comp' ? 'comp' : e.voice);
+        this.voice(this.startTime + (e.t - fromBeat) * BEAT_SEC, e.dur, e.midi, e.vel, e.voice === 'comp' ? 'comp' : e.voice);
       });
-      // brushes on the grid (2 & 4 snare, off-8th hat) with swing
-      const totalBeats = 64 - this.startBeat;
-      for (let b = Math.ceil(this.startBeat); b < 64; b++) {
-        this.brush(this.startTime + (b - this.startBeat) * BEAT_SEC, 'snare', b % 4 === 2 ? 1 : 0.0001);
-        if (b % 2 === 1) this.brush(this.startTime + (b - this.startBeat) * BEAT_SEC + swing * BEAT_SEC, 'hat', 1);
+      for (let b = Math.ceil(fromBeat); b < fromBeat + beats; b++) {
+        this.brush(this.startTime + (b - fromBeat) * BEAT_SEC, 'snare', b % 4 === 2 ? 1 : 0.0001);
+        if (b % 2 === 1) this.brush(this.startTime + (b - fromBeat) * BEAT_SEC + swing * BEAT_SEC, 'hat', 1);
       }
-      this.endAt = this.startTime + totalBeats * BEAT_SEC + 1;
+      this.endAt = this.startTime + beats * BEAT_SEC + 0.5;
       this.schedTimer = setInterval(() => {
         Roll.draw();
-        const el = this.ctx.currentTime - this.startTime;
-        $('timeLabel').textContent = fmt(el) + ' / ' + fmt(totalBeats * BEAT_SEC);
+        const el = Math.max(0, this.ctx.currentTime - this.startTime);
+        $('timeLabel').textContent = fmt(Math.min(el, beats * BEAT_SEC)) + ' / ' + fmt(beats * BEAT_SEC);
         if (this.ctx.currentTime > this.endAt) this.stop();
       }, 40);
     },
@@ -389,25 +387,33 @@
   }
 
   /* ------------------------------ the run ------------------------------ */
+  const AUDITION_BEATS = 8; // hear two bars of every round as the argument plays
   async function doRun(maxRounds) {
     Audio.stop();
     const seed = $('seedInput').value.trim() || ('duke-lab/' + Date.now().toString(36));
     $('seedInput').value = seed;
     const conv = 0.125; // judged against the reachable canon (see engine)
+    // consume sticky asks/persona-swaps at run start (not before — leaning in then running must keep the words)
+    const nudges = { ...S.pendingNudges }; S.pendingNudges = {};
+    const swaps = { ...S.personaSwaps }; S.personaSwaps = {};
     const run = E.runArgument({
       seed, artist: S.artist, persona: S.persona, maxRounds: maxRounds || 8,
-      convergence: conv, nudges: S.pendingNudges, personaSwaps: S.personaSwaps,
+      convergence: conv, nudges, personaSwaps: swaps,
     });
     S.run = run; S.roundIdx = 0;
     $('verdictBanner').className = '';
     $('footSeed').textContent = seed;
-    // play the argument out round by round
+    // play the argument out round by round — heard as well as seen
     for (let i = 0; i < run.rounds.length; i++) {
       selectRound(i);
       renderJournal();
-      await wait(i === 0 ? 500 : 1900);
+      $('runMeta').textContent = `round ${i}/${run.rounds.length - 1} · seed ${seed} · ${E.ARTISTS[S.artist].name}` +
+        (S.audition ? ' · auditioning two bars…' : '');
+      if (S.audition && i > 0) Audio.playWindow(0, AUDITION_BEATS);
+      await wait(i === 0 ? 600 : 5600);
       if (S.run !== run) return; // superseded
     }
+    Audio.stop();
     renderBanner(); renderJournal();
   }
   function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
@@ -418,21 +424,22 @@
   function doStep() {
     if (!stepRun || stepRun.seed !== $('seedInput').value.trim() || stepRun._artist !== S.artist || stepRun._persona !== S.persona) {
       const seed = $('seedInput').value.trim() || ('duke-lab/' + Date.now().toString(36));
+      const nudges = { ...S.pendingNudges }; S.pendingNudges = {};
+      const swaps = { ...S.personaSwaps }; S.personaSwaps = {};
       stepRun = E.runArgument({
         seed, artist: S.artist, persona: S.persona, maxRounds: 8, convergence: 0.125,
-        nudges: S.pendingNudges, personaSwaps: S.personaSwaps,
+        nudges, personaSwaps: swaps,
       });
       stepRun._artist = S.artist; stepRun._persona = S.persona;
       S.run = stepRun; S.roundIdx = 0;
       $('verdictBanner').className = '';
       $('footSeed').textContent = seed;
     }
-    if (S.roundIdx < stepRun.rounds.length - 1 || !stepRun.verdict) {
-      selectRound(S.roundIdx);
-      renderJournal();
-      if (S.roundIdx === stepRun.rounds.length - 1) renderBanner();
-      S.roundIdx++;
-    }
+    const last = stepRun.rounds.length - 1;
+    selectRound(Math.min(S.roundIdx, last));
+    renderJournal();
+    if (S.roundIdx >= last) renderBanner();
+    else S.roundIdx++;
   }
 
   /* ------------------------------ blind test --------------------------- */
@@ -442,7 +449,7 @@
     const i = 1 + Math.floor(Math.random() * (run.rounds.length - 1));
     const order = Math.random() < 0.5 ? [i - 1, i] : [i, i - 1];
     S.blind = { later: i, order, played: 0 };
-    $('blindResult').textContent = 'playing two 4-bar excerpts… which is the LATER round?';
+    $('blindResult').textContent = 'playing two short excerpts… which is the LATER round?';
     playExcerpt(order[0], 0, () => setTimeout(() => playExcerpt(order[1], 1, () => {
       $('blindResult').innerHTML = 'guess: <button id="g0">first</button> <button id="g1">second</button>';
       $('g0').onclick = () => blindJudge(0);
@@ -451,10 +458,8 @@
   };
   function playExcerpt(roundIdx, which, done) {
     selectRound(roundIdx);
-    Audio.ensure(); Audio.ctx.resume();
-    const wasPlaying = S.playing;
-    Audio.play(0);
-    setTimeout(() => { Audio.stop(); done && done(); }, 4 * 4 * BEAT_SEC * 1000 + 200);
+    Audio.playWindow(0, 8); // two bars — enough phrase to judge, short enough to stay snappy
+    setTimeout(() => { done && done(); }, 8 * BEAT_SEC * 1000 + 250);
   }
   function blindJudge(guessIdx) {
     const b = S.blind; if (!b) return;
@@ -505,8 +510,8 @@
     ch.classList.add('on'); S.persona = next;
     $('personaName').textContent = E.PERSONAS[next].name;
   });
-  $('btnBegin').onclick = () => { S.personaSwaps = {}; S.pendingNudges = {}; doRun(7); };
-  $('btnBeginHero').onclick = () => { document.querySelector('.studio').scrollIntoView({ behavior: 'smooth' }); S.personaSwaps = {}; S.pendingNudges = {}; doRun(7); };
+  $('btnBegin').onclick = () => doRun(8);
+  $('btnBeginHero').onclick = () => { document.querySelector('.studio').scrollIntoView({ behavior: 'smooth' }); doRun(8); };
   $('btnStep').onclick = doStep;
   $('btnReroll').onclick = () => {
     const words = ['cresleigh', 'last-ferry', 'jungle', 'harlem', 'azure', 'mood-indigo', 'caravan', 'satin', 'prelude', 'lullaby'];
@@ -524,6 +529,11 @@
   $('askInput').addEventListener('keydown', e => { if (e.key === 'Enter') $('btnAsk').click(); });
   $('btnPlay').onclick = () => { if (S.playing) Audio.stop(); else if (currentRound()) Audio.play(0); };
   $('btnStop').onclick = () => Audio.stop();
+  $('btnAudition').onclick = () => {
+    S.audition = !S.audition;
+    $('btnAudition').textContent = 'audition rounds: ' + (S.audition ? 'on' : 'off');
+    $('btnAudition').classList.toggle('primary', S.audition);
+  };
   $('btnWorkerSave').onclick = () => {
     localStorage.setItem('dukelab-worker', $('workerUrl').value.trim());
     Fleet.url = $('workerUrl').value.trim();

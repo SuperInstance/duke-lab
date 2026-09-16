@@ -1,0 +1,7 @@
+[1522845:1522845:0917/014025.734204:INFO:components/enterprise/browser/controller/chrome_browser_cloud_management_controller.cc:238] No machine level policy manager exists.
+[1522845:1522877:0917/014025.921555:WARNING:chrome/browser/extensions/external_pref_loader.cc:295] You are using an old-style extension deployment method (external_extensions.json), which will soon be deprecated. (see http://developer.chrome.com/docs/extensions/how-to/distribute/install-extensions)
+[1522845:1522845:0917/014026.175198:ERROR:dbus/object_proxy.cc:572] Failed to call method: org.freedesktop.DBus.Properties.GetAll: object_path= /org/freedesktop/UPower/devices/DisplayDevice: org.freedesktop.DBus.Error.ServiceUnknown: The name org.freedesktop.UPower was not provided by any .service files
+[1522845:1522845:0917/014026.187832:WARNING:dbus/property.cc:174] GetAll request failed for: org.freedesktop.UPower.Device
+[1522845:1522845:0917/014026.344150:WARNING:ui/base/idle/idle_linux.cc:111] None of the known D-Bus ScreenSaver services could be used.
+[1522888:1522908:0917/014027.993042:WARNING:net/extras/sqlite/sqlite_persistent_store_backend_base.cc:176] Failed to post task from FlushAndNotifyInBackground@net/extras/sqlite/sqlite_persistent_store_backend_base.cc:226 to client_task_runner_.
+[1522888:1522908:0917/014027.993292:WARNING:net/extras/sqlite/sqlite_persistent_store_backend_base.cc:176] Failed to post task from FlushAndNotifyInBackground@net/extras/sqlite/sqlite_persistent_store_backend_base.cc:226 to client_task_runner_.
