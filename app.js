@@ -415,6 +415,10 @@
     }
     Audio.stop();
     renderBanner(); renderJournal();
+    const v = run.verdict;
+    $('runMeta').textContent = v.status === 'CONVERGED'
+      ? `converged in ${v.round} rounds · seed ${seed} · σ EMA ${(v.sigma || 0).toFixed(3)} — the critic can no longer tell`
+      : `honest gap after ${v.round} rounds · seed ${seed} · best σ ${v.sigma.toFixed(3)} — residue named, not hidden`;
   }
   function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
 
@@ -552,7 +556,20 @@
     // deep-linking: ?autorun=1 runs the argument on load; ?round=4 jumps
     const q = new URLSearchParams(location.search);
     if (q.get('seed')) $('seedInput').value = q.get('seed');
-    if (q.has('round')) { S.pendingNudges = {}; doRun(7).then(() => selectRound(Math.min(+q.get('round') || 0, (S.run ? S.run.rounds.length - 1 : 0)))); }
-    else if (q.get('autorun')) { S.pendingNudges = {}; doRun(7); }
+    if (q.get('artist') && E.ARTISTS[q.get('artist')]) {
+      S.artist = q.get('artist');
+      $('artistChips').querySelectorAll('.chip').forEach(c => c.classList.toggle('on', c.dataset.artist === S.artist));
+    }
+    if (q.get('persona') && E.PERSONAS[q.get('persona')]) {
+      S.persona = q.get('persona');
+      $('personaChips').querySelectorAll('.chip').forEach(c => c.classList.toggle('on', c.dataset.persona === S.persona));
+      $('personaName').textContent = E.PERSONAS[S.persona].name;
+    }
+    if (q.has('round')) { S.pendingNudges = {}; doRun(8).then(() => selectRound(Math.min(+q.get('round') || 0, (S.run ? S.run.rounds.length - 1 : 0)))); }
+    else if (q.get('autorun')) { S.pendingNudges = {}; doRun(8); }
+    document.addEventListener('keydown', e => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      if (e.code === 'Space') { e.preventDefault(); if (S.playing) Audio.stop(); else if (currentRound()) Audio.play(0); }
+    });
   });
 })();
