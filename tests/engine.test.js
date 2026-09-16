@@ -74,5 +74,30 @@ const a = E.ARTISTS;
 t('monk most anti-downbeat', a.monk.centroid.downbeatWeight < a.duke.centroid.downbeatWeight - 0.2);
 t('evans broods most on rests', a.evans.centroid.restRatio > a.duke.centroid.restRatio && a.monk.centroid.restRatio > a.evans.centroid.restRatio);
 
+console.log('== the workshop: designed musicians ==');
+E.registerArtist('m:t1', { name: 'TEST SAILOR', centroid: { registerSpread:.7, trebleActivity:.5, dynRange:.8, dynContour:.7, swingFeel:.6, syncopation:.5, downbeatWeight:.4, harmonicComplex:.6, chromaticism:.4, repetition:.3, callReply:.7, density:.5, phraseVariance:.6, restRatio:.5, bassMovement:.6, cadenceRegular:.4 } });
+t('registered artist visible', E.ARTISTS['m:t1'].name === 'TEST SAILOR');
+t('registered artist calibrates', Array.isArray(E.effectiveCentroid('m:t1')) && E.effectiveCentroid('m:t1').length === 16);
+const crun = E.runArgument({ seed: 'w/1', artist: 'm:t1', maxRounds: 8, convergence: 0.125 });
+t('designed musician runs', crun.rounds.length >= 2 && !!crun.verdict);
+t('designed musician keeps its canon', Math.abs(crun.effective[E.FEATURES[0].id] - E.effectiveCentroid('m:t1')[0]) < 1e-9);
+
+console.log('== vibe-coded judges ==');
+E.registerPersona('j:t1', { name: 'TEST BOATSWAIN', weights: { restRatio: 2.0, swingFeel: 1.5, bassMovement: 1.4 } });
+const jrun = E.runArgument({ seed: 'w/2', artist: 'duke', persona: 'j:t1', maxRounds: 8, convergence: 0.125 });
+t('vibe-coded judge heard by name', E.PERSONAS[jrun.persona].name === 'TEST BOATSWAIN');
+t('vibe-coded judge changes the argument', jrun.rounds[0].persona === 'j:t1');
+
+console.log('== the bandstand: duets ==');
+const d1 = E.runDuet({ seed: 'b/1', a: 'duke', b: 'monk', phrases: 4 });
+t('duet returns both voices', d1.events.some(e => e.voice === 'melody') && d1.events.some(e => e.voice === 'melody2'));
+t('duet spans its beats', d1.beats === 32 && d1.events.every(e => e.t < d1.beats));
+t('duet banter scored', d1.quotes >= 0 && d1.banter >= 0 && d1.banter <= 1);
+const d1b = E.runDuet({ seed: 'b/1', a: 'duke', b: 'monk', phrases: 4 });
+t('duet deterministic', JSON.stringify(d1.events) === JSON.stringify(d1b.events) && d1.quotes === d1b.quotes);
+const d2 = E.runDuet({ seed: 'b/2', a: 'm:t1', b: 'evans', phrases: 3 });
+t('designed musicians can duet', d2.phrases.length === 3 && d2.a === 'TEST SAILOR');
+t('duet song names both', d2.song.includes('×'));
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

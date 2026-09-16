@@ -88,6 +88,48 @@ npx wrangler secret put OPENAI_API_KEY   # optional, enables the fleet ear
 GitHub Pages (instant): repo settings → Pages → serve `main` root. The site works from
 `file://` too — no server, no build, no tracking.
 
+## The workshop, the bandstand, and the ledger (v2)
+
+The instrument is also a **musician foundry**. Every musician is a point in
+[0,1]¹⁶ — their 16-feature centroid — and the fleet learns from every
+argument anyone runs.
+
+- **Design a musician** — describe one in words; the fleet ear (or the honest
+  local lexicon) turns the description into a measurable centroid. They
+  register into the same canon as Ellington and Monk — the machine doesn't
+  special-case them. That is the point of designing in the open.
+- **Vibe-code the judge** — not presets: a loss function in words. What the
+  judge punishes becomes weights over the 16 axes; the argument answers to
+  them, by name, in the journal.
+- **The bandstand** — once a musician has matured (argument finished, params
+  evolved), sit them in with another. They trade 8-bar phrases; the responder
+  answers with the previous phrase's own cadence three times out of four.
+  The **banter score** (quotes ÷ responses) is fitness, and it goes in the
+  ledger.
+- **Every generation helps** — each finished run POSTs its matured params to
+  `/api/learn`, which graduates them into musician-space: a D1 row, a 16-dim
+  native Vectorize embedding (the mathematical musician-space), and a 768-dim
+  semantic embedding of the description. `/api/musicians/similar` answers
+  "who plays like this one" — ghost suggestions for cross-breeding.
+- **Liberal limits** — 45 requests/min/IP on purpose: most any GAN work
+  teaches the fleet something. Visitors can opt out of the ledger with one
+  checkbox; the site says so on the page.
+
+### Provision the fleet backend
+
+```bash
+cd worker
+npx wrangler d1 create duke-lab-db          # paste the id into wrangler.toml
+npx wrangler vectorize create musicians-native --dimensions=16 --metric=cosine
+npx wrangler vectorize create musicians-semantic --dimensions=768 --metric=cosine
+npx wrangler d1 execute duke-lab-db --file=schema.sql --remote
+npx wrangler secret put OPENAI_API_KEY
+npx wrangler deploy
+```
+
+None of it is required for the page to work — every endpoint degrades
+honestly (local lexicon, D1-less ledger) rather than 502.
+
 ## Honesty contract
 
 1. Same seed → same argument, byte for byte. Seed displayed on screen.

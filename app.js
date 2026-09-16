@@ -20,6 +20,9 @@
     personaSwaps: {},
     stepCount: 0,
     blind: null,
+    duet: null,          // set when the bandstand is showing a conversation
+    matured: null,       // the last run's evolved params, ready to sit in
+    askLog: [],
     fleetLive: false,
     audition: true,
   };
@@ -28,6 +31,20 @@
   /* --------------------------- fleet client --------------------------- */
   const Fleet = {
     url: localStorage.getItem('dukelab-worker') || '',
+    post(path, body, ms) {
+      return fetch(this.url.replace(/\/$/, '') + path, {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body || {}), signal: AbortSignal.timeout(ms || 12000),
+      }).then(r => (r.ok ? r.json() : null)).catch(() => null);
+    },
+    get(path, ms) {
+      return fetch(this.url.replace(/\/$/, '') + path, { signal: AbortSignal.timeout(ms || 6000) })
+        .then(r => (r.ok ? r.json() : null)).catch(() => null);
+    },
+    musician(description) { return this.post('/api/musician', { description }); },
+    judge(description) { return this.post('/api/judge', { description }); },
+    learn(payload) { return this.post('/api/learn', payload); },
+    ledger() { return this.get('/api/ledger'); },
     async health() {
       if (!this.url) return false;
       try {
@@ -83,25 +100,27 @@
       const c = this.ctx, f = 440 * Math.pow(2, (midi - 69) / 12);
       const g = c.createGain();
       const v = Math.pow(vel / 127, 1.4);
-      if (kind === 'melody') {
+      if (kind === 'melody' || kind === 'melody2') {
         const o1 = c.createOscillator(), o2 = c.createOscillator(), flt = c.createBiquadFilter();
         o1.type = 'triangle'; o2.type = 'triangle';
-        o1.frequency.value = f; o2.frequency.value = f * 1.003;
+        o1.frequency.value = f; o2.frequency.value = f * (kind === 'melody2' ? 1.006 : 1.003);
         flt.type = 'lowpass'; flt.frequency.value = 900 + vel * 18; flt.Q.value = 0.7;
         g.gain.setValueAtTime(0, t);
-        g.gain.linearRampToValueAtTime(v * 0.30, t + 0.012);
+        g.gain.linearRampToValueAtTime(v * (kind === 'melody2' ? 0.24 : 0.30), t + 0.012);
         g.gain.exponentialRampToValueAtTime(0.001, t + Math.max(0.24, dur * BEAT_SEC * 0.9));
         o1.connect(flt); o2.connect(flt); flt.connect(g); g.connect(this.master);
         o1.start(t); o2.start(t); o1.stop(t + 1.6); o2.stop(t + 1.6);
-      } else if (kind === 'bass') {
+      } else if (kind === 'bass' || kind === 'bass2') {
         const o1 = c.createOscillator(), o2 = c.createOscillator();
-        o1.type = 'sine'; o2.type = 'triangle';
-        o1.frequency.value = f; o2.frequency.value = f; o2.detune.value = 4;
-        const og = c.createGain(); og.gain.value = 0.4;
+        o1.type = 'sine'; o2.type = kind === 'bass2' ? 'sawtooth' : 'triangle';
+        o1.frequency.value = f; o2.frequency.value = f; o2.detune.value = kind === 'bass2' ? 7 : 4;
+        const og = c.createGain(); og.gain.value = kind === 'bass2' ? 0.25 : 0.4;
+        const flt = c.createBiquadFilter();
+        flt.type = 'lowpass'; flt.frequency.value = 420;
         g.gain.setValueAtTime(0, t);
-        g.gain.linearRampToValueAtTime(v * 0.5, t + 0.02);
+        g.gain.linearRampToValueAtTime(v * (kind === 'bass2' ? 0.4 : 0.5), t + 0.02);
         g.gain.exponentialRampToValueAtTime(0.001, t + Math.max(0.3, dur * BEAT_SEC));
-        o1.connect(og); o2.connect(og); og.connect(g); g.connect(this.master);
+        o1.connect(og); o2.connect(og); og.connect(flt); flt.connect(g); g.connect(this.master);
         o1.start(t); o2.start(t); o1.stop(t + 1.8); o2.stop(t + 1.8);
       } else if (kind === 'comp') {
         // stacked third + seventh, sustained quietly — the voicing ghost
@@ -130,7 +149,7 @@
       src.connect(flt); flt.connect(g); g.connect(this.master);
       src.start(t); src.stop(t + 0.3);
     },
-    events() { const r = currentRound(); return r ? r.events : []; },
+    events() { if (S.duet) return S.duet.events; const r = currentRound(); return r ? r.events : []; },
     play(fromBeat) { this.playWindow(fromBeat || 0, 64 - (fromBeat || 0)); },
     playWindow(fromBeat, beats) {
       this.ensure(); this.ctx.resume();
@@ -140,7 +159,8 @@
       S.playing = true;
       $('btnPlay').textContent = '❚❚ playing';
       const evs = this.events().filter(e => e.t >= fromBeat && e.t < fromBeat + beats);
-      const swing = currentRound() ? currentRound().params.swingFeel * 0.33 : 0.15;
+      const round = currentRound();
+      const swing = round && !S.duet ? round.params.swingFeel * 0.33 : 0.15;
       evs.forEach(e => {
         this.voice(this.startTime + (e.t - fromBeat) * BEAT_SEC, e.dur, e.midi, e.vel, e.voice === 'comp' ? 'comp' : e.voice);
       });
@@ -185,7 +205,7 @@
       const playBeat = (S.playing && Audio.ctx) ? (Audio.ctx.currentTime - Audio.startTime) + Audio.startBeat : -1;
       evs.forEach(e => {
         const px = x(e.t), pw = Math.max(2, (e.dur / 64) * W);
-        c.fillStyle = e.voice === 'melody' ? 'rgba(212,169,78,0.85)' : e.voice === 'bass' ? 'rgba(91,168,160,0.75)' : 'rgba(232,228,218,0.22)';
+        c.fillStyle = e.voice === 'melody' ? 'rgba(212,169,78,0.85)' : e.voice === 'melody2' ? 'rgba(240,205,127,0.9)' : e.voice === 'bass' ? 'rgba(91,168,160,0.75)' : e.voice === 'bass2' ? 'rgba(127,212,204,0.8)' : 'rgba(232,228,218,0.22)';
         c.fillRect(px, y(e.midi), pw, 3 * devicePixelRatio);
       });
       if (playBeat >= 0 && playBeat <= 64) {
@@ -421,6 +441,18 @@
     $('runMeta').textContent = v.status === 'CONVERGED'
       ? `converged in ${v.round} rounds · seed ${seed} · σ EMA ${(v.sigma || 0).toFixed(3)} — the critic can no longer tell`
       : `honest gap after ${v.round} rounds · seed ${seed} · best σ ${v.sigma.toFixed(3)} — residue named, not hidden`;
+    // the run has matured: its final params can sit in with another musician
+    const bestR = run.rounds[v.round] || run.rounds[run.rounds.length - 1];
+    S.matured = { key: 'g:' + seed, name: 'EVOLVED ' + seed.split('/')[0].toUpperCase(), artistKey: S.artist, params: { ...bestR.params } };
+    refreshDuetSelects();
+    // every generation helps — unless the visitor asked us not to look
+    if (Fleet.url && !$('optLedger').checked) {
+      Fleet.learn({
+        seed, canon: S.artist, judge: S.persona, verdict: v.status, rounds: v.round,
+        sigma: +(v.sigma || bestR.sigma || 0), asks: Object.values(nudges).map(n => JSON.stringify(n)),
+        finalParams: bestR.params, musicianName: S.matured.name,
+      }).then(() => refreshLedger());
+    }
   }
   function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
 
@@ -544,9 +576,139 @@
     localStorage.setItem('dukelab-worker', $('workerUrl').value.trim());
     Fleet.url = $('workerUrl').value.trim();
     refreshModeBadge();
+    refreshLedger();
   };
 
   /* ------------------------------- boot -------------------------------- */
+  /* ------------------------- the workshop ------------------------------ */
+  // Designed musicians register into the same canon; vibe-coded judges into
+  // the same persona bench. The machine doesn't special-case them — that is
+  // the point of designing in the open.
+  function addChip(rowId, label, dataset, onClick) {
+    const chip = document.createElement('span');
+    chip.className = 'chip'; chip.textContent = label;
+    Object.entries(dataset).forEach(([k, v]) => (chip.dataset[k] = v));
+    chip.onclick = onClick;
+    $(rowId).appendChild(chip);
+    return chip;
+  }
+  $('btnMakeMusician').onclick = async () => {
+    const text = $('shopMusician').value.trim();
+    if (!text) return;
+    const st = $('shopMusicianStatus');
+    st.textContent = 'designing…';
+    let m = null, source = 'local lexicon';
+    if (Fleet.url && S.fleetLive) {
+      const r = await Fleet.musician(text);
+      if (r && r.ok && r.musician) { m = r.musician; source = r.musician.source === 'llm' ? 'fleet ear' : 'local lexicon'; }
+    }
+    if (!m) {
+      const l = E.parseAsk(text); // honest local design path
+      const centroid = {};
+      E.FEATURES.forEach(f => (centroid[f.id] = E.clamp(E.ARTISTS.duke.centroid[f.id] + (l.delta[f.id] || 0), 0, 1)));
+      m = { id: 'local/' + E.fnv1a(text).toString(36), name: text.split(/\s+/).filter(w => w.length > 2).slice(0, 2).join(' ').toUpperCase() || 'THE SAILOR', centroid };
+    }
+    const key = 'm:' + m.id;
+    E.registerArtist(key, { name: m.name, blurb: m.blurb || 'Designed on the bandstand.', centroid: m.centroid, progression: m.progression || 'duke' });
+    const chip = addChip('artistChips', m.name, { artist: key }, null);
+    chip.onclick = () => {
+      $('artistChips').querySelectorAll('.chip').forEach(x => x.classList.remove('on'));
+      chip.classList.add('on'); S.artist = key; stepRun = null; S.run = null;
+      $('runMeta').textContent = `${E.ARTISTS[key].name} takes the chair — designed, not canon.`;
+      Roll.draw(); Radar.draw();
+    };
+    chip.click();
+    st.textContent = `${m.name} joins the canon · via ${source}${m.persisted === false ? ' · (ledger unbound — worker has no D1 yet)' : ' · logged to the ledger'}`;
+    refreshDuetSelects();
+    refreshLedger();
+  };
+  $('btnMakeJudge').onclick = async () => {
+    const text = $('shopJudge').value.trim();
+    if (!text) return;
+    const st = $('shopJudgeStatus');
+    st.textContent = 'seating…';
+    let j = null, source = 'local lexicon';
+    if (Fleet.url && S.fleetLive) {
+      const r = await Fleet.judge(text);
+      if (r && r.ok && r.judge) { j = r.judge; source = r.judge.source === 'llm' ? 'fleet ear' : 'local lexicon'; }
+    }
+    if (!j) {
+      const l = E.parseAsk(text);
+      const weights = {};
+      E.FEATURES.forEach(f => { const w = 1 + Math.abs(l.delta[f.id] || 0) * 8; if (w > 1.15) weights[f.id] = +w.toFixed(2); });
+      if (!Object.keys(weights).length) { weights.restRatio = 1.8; weights.dynContour = 1.4; }
+      j = { id: 'local/' + E.fnv1a(text).toString(36), name: text.split(/\s+/).filter(w => w.length > 2).slice(0, 2).join(' ').toUpperCase() || 'THE CRITIC', weights, floor: 0, voice: '' };
+    }
+    const key = 'j:' + j.id;
+    E.registerPersona(key, { name: j.name, weights: j.weights });
+    const chip = addChip('personaChips', j.name, { persona: key }, null);
+    chip.onclick = () => {
+      const next = key;
+      if (S.run && next !== S.persona) S.personaSwaps[(S.roundIdx || 0) + 1] = next;
+      $('personaChips').querySelectorAll('.chip').forEach(x => x.classList.remove('on'));
+      chip.classList.add('on'); S.persona = next;
+      $('personaName').textContent = E.PERSONAS[next].name;
+    };
+    chip.click();
+    st.textContent = `${j.name} takes the bench · cares about ${Object.keys(j.weights).slice(0, 4).join(', ')} · via ${source}`;
+  };
+
+  /* ------------------------- the bandstand ----------------------------- */
+  function duetVoices() {
+    const base = Object.keys(E.ARTISTS).map(k => ({ key: k, label: E.ARTISTS[k].name }));
+    if (S.matured) base.push({ key: S.matured.key, label: S.matured.name + ' (matured this session)', obj: S.matured });
+    return base;
+  }
+  function refreshDuetSelects() {
+    const vs = duetVoices();
+    ['duetA', 'duetB'].forEach((id, ix) => {
+      const sel = $(id), cur = sel.value;
+      sel.innerHTML = '';
+      vs.forEach(v => {
+        const o = document.createElement('option');
+        o.value = v.key; o.textContent = v.label;
+        sel.appendChild(o);
+      });
+      sel.value = cur && vs.some(v => v.key === cur) ? cur : vs[ix === 0 ? 0 : Math.min(1, vs.length - 1)].key;
+    });
+  }
+  function resolveDuetVoice(key) {
+    if (E.ARTISTS[key]) return key;
+    if (S.matured && key === S.matured.key) return S.matured;
+    return 'duke';
+  }
+  $('btnDuet').onclick = () => {
+    const a = resolveDuetVoice($('duetA').value), b = resolveDuetVoice($('duetB').value);
+    const seed = 'duet/' + ($('seedInput').value.trim() || 'open-mic');
+    const duet = E.runDuet({ seed, a, b, phrases: 4 });
+    S.duet = duet;
+    Audio.stop();
+    $('banterLog').innerHTML = (duet.log.length ? duet.log.map(l => '↳ ' + l).join('<br>') + '<br>' : '') +
+      `↳ banter ${duet.banter} — ${duet.banter >= 0.6 ? 'they are actually listening to each other' : duet.banter >= 0.3 ? 'polite nods, mostly' : 'two monologues, one stage'}`;
+    $('notation').textContent = duet.song;
+    $('runMeta').textContent = `duet · ${duet.a} × ${duet.b} · ${duet.beats} beats · ${duet.quotes} quote${duet.quotes === 1 ? '' : 's'}`;
+    Roll.draw();
+    if (Fleet.url && !$('optLedger').checked) {
+      Fleet.learn({ seed, canon: 'duet:' + duet.a + '×' + duet.b, judge: '—', verdict: 'DUET', rounds: duet.phrases.length, sigma: 0, banter: duet.banter }).then(() => refreshLedger());
+    }
+  };
+  $('btnDuetPlay').onclick = () => { if (!S.duet) return; const canSound = !navigator.userActivation || navigator.userActivation.hasBeenActive; if (canSound) Audio.playWindow(0, S.duet.beats); else $('runMeta').textContent += ' · (audio needs one click first — autoplay law)'; };
+  $('btnDuetMidi').onclick = () => {
+    if (!S.duet) return;
+    const bytes = E.toMidi(S.duet.events, 96);
+    download('duke-lab-duet.mid', new Blob([bytes.buffer], { type: 'audio/midi' }));
+  };
+
+  /* ------------------------- the ledger -------------------------------- */
+  async function refreshLedger() {
+    if (!Fleet.url) return;
+    const j = await Fleet.ledger();
+    if (!j || !j.persisted) { $('ledgerLine').textContent = 'ledger: — (worker has no D1 binding yet — see worker/schema.sql)'; return; }
+    const evolved = j.recent ? j.recent.filter(m => m.source === 'evolved').length : 0;
+    $('ledgerLine').textContent = `ledger: ${j.runs} arguments · ${j.musicians} musicians (${evolved} evolved) · ${j.judges} judges` +
+      (j.avgSigma != null ? ` · mean σ ${j.avgSigma}` : '') + ' — every generation helps';
+  }
+
   window.addEventListener('DOMContentLoaded', () => {
     Roll.init(); Radar.init();
     $('workerUrl').value = Fleet.url;
@@ -555,6 +717,10 @@
     renderJournal();
     $('journal').textContent = '// the referee narrates each round here. the trace, not the vibe.';
     refreshModeBadge();
+    refreshDuetSelects();
+    $('optLedger').checked = localStorage.getItem('dukelab-no-ledger') === '1';
+    $('optLedger').onchange = () => localStorage.setItem('dukelab-no-ledger', $('optLedger').checked ? '1' : '0');
+    $('workerUrl').value = Fleet.url;
     // deep-linking: ?autorun=1 runs the argument on load; ?round=4 jumps
     const q = new URLSearchParams(location.search);
     if (q.get('seed')) $('seedInput').value = q.get('seed');
@@ -566,6 +732,35 @@
       S.persona = q.get('persona');
       $('personaChips').querySelectorAll('.chip').forEach(c => c.classList.toggle('on', c.dataset.persona === S.persona));
       $('personaName').textContent = E.PERSONAS[S.persona].name;
+    }
+    if (q.has('uitest')) {
+      // headless self-test: exercises workshop + bandstand, reports in <title>
+      setTimeout(async () => {
+        const out = [];
+        try {
+          $('shopMusician').value = 'a noir trumpeter who answers in shadows';
+          await $('btnMakeMusician').onclick();
+          const mChips = $('artistChips').querySelectorAll('.chip').length;
+          const mOk = mChips === 4 && S.artist.startsWith('m:') && !!E.ARTISTS[S.artist];
+          out.push(mOk ? 'musician:ok' : 'musician:FAIL chips=' + mChips);
+          $('shopJudge').value = 'a critic who only forgives space and swing';
+          await $('btnMakeJudge').onclick();
+          const jOk = $('personaChips').querySelectorAll('.chip').length === 5 && S.persona.startsWith('j:');
+          out.push(jOk ? 'judge:ok' : 'judge:FAIL');
+          $('duetB').value = S.matured ? S.matured.key : $('duetB').value;
+          $('btnDuet').onclick();
+          const dOk = S.duet && S.duet.events.length > 40 && $('banterLog').textContent.includes('banter');
+          out.push(dOk ? 'duet:ok quotes=' + S.duet.quotes : 'duet:FAIL');
+          // run a custom-musician argument end-to-end
+          $('seedInput').value = 'uitest/1';
+          await doRun(8);
+          const rOk = S.run && S.run.verdict && $('runMeta').textContent.includes('seed uitest/1');
+          out.push(rOk ? 'run:ok ' + S.run.verdict.status : 'run:FAIL');
+          out.push('duet-voices:' + (S.duet.events.some(e => e.voice === 'melody2') ? 'ok' : 'FAIL'));
+        } catch (e) { out.push('EX:' + e.message); }
+        const bad = out.some(x => x.includes('FAIL') || x.startsWith('EX'));
+        document.title = 'UITEST ' + (bad ? 'FAIL' : 'PASS') + ' | ' + out.join(' ');
+      }, 800);
     }
     if (q.has('round')) { S.pendingNudges = {}; doRun(8).then(() => selectRound(Math.min(+q.get('round') || 0, (S.run ? S.run.rounds.length - 1 : 0)))); }
     else if (q.get('autorun')) { S.pendingNudges = {}; doRun(8); }

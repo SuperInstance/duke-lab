@@ -11,3 +11,27 @@ compatibility_date = "2025-01-01"
 
 [assets]
 directory = "./public"
+
+# The fleet ledger + musician vectorization. Provision:
+#   npx wrangler d1 create duke-lab-db
+#   npx wrangler vectorize create musicians-native --dimensions=16 --metric=cosine
+#   npx wrangler vectorize create musicians-semantic --dimensions=768 --metric=cosine
+# then paste the ids below, apply schema.sql, deploy.
+# The worker degrades honestly without any of them (local fallback lexicon,
+# D1-less mode badge) — the page never 502s.
+
+[[d1_databases]]
+binding = "DB"
+database_name = "duke-lab-db"
+database_id = "00000000-0000-0000-0000-000000000000"  # ← replace after `wrangler d1 create`
+
+[[vectorize]]
+binding = "MUSICIANS_NATIVE"
+index_name = "musicians-native"
+
+[[vectorize]]
+binding = "MUSICIANS_SEMANTIC"
+index_name = "musicians-semantic"
+
+[ai]
+binding = "AI"   # Workers AI — 768-dim semantic embeddings of descriptions

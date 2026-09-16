@@ -131,6 +131,23 @@
     romantic:  { name: 'THE ROMANTIC',  weights: { restRatio: 1.8, dynContour: 1.5, callReply: 1.4, phraseVariance: 1.5 } },
     historian: { name: 'THE HISTORIAN', weights: { swingFeel: 1.8, syncopation: 1.5, downbeatWeight: 1.5, bassMovement: 1.3, repetition: 1.2 } },
   };
+  // Designed musicians / vibe-coded judges enter the same machine — no special
+  // casing downstream. Registration is the public act of designing.
+  function registerArtist(key, def) {
+    ARTISTS[key] = {
+      name: def.name || 'THE STRANGER',
+      tonic: def.tonic || 46,
+      blurb: def.blurb || 'Designed on the bandstand, not born in the canon.',
+      centroid: def.centroid, // keyed by feature id, 16 entries
+    };
+    PROGRESSIONS[key] = PROGRESSIONS[def.progression || 'duke']; // share a book of changes until the design earns its own
+    delete _effCache[key]; // force re-calibration against the reachable
+    return key;
+  }
+  function registerPersona(key, def) {
+    PERSONAS[key] = { name: def.name || 'THE GUEST CRITIC', weights: def.weights || {} };
+    return key;
+  }
   const AXES_HINTS = { // critique lines, chosen by direction of deviation
     registerSpread:  ['The line never leaves the middle octave — REGISTER CEILING.', 'The line sprawls without a home register.'],
     trebleActivity:  ['Treble activity reads 0.0 — the arm never goes up.', 'Too much time in the top shelf; it stops meaning anything.'],
@@ -554,6 +571,62 @@
     return `R${r} σ=${sigma.toFixed(3)} — ${cx}${fl}`;
   }
 
+  /* ------------------------------- the duet ------------------------------- */
+  // Two matured musicians trade phrases. The responder quotes the previous
+  // phrase's ending contour three times out of four — that is the banter.
+  function runDuet(opts) {
+    opts = opts || {};
+    const seed = opts.seed || 'duet/blue';
+    const rng = rngFromSeed('duet:' + seed);
+    const who = [opts.a || 'duke', opts.b || 'monk'].map(k =>
+      typeof k === 'string'
+        ? { name: (ARTISTS[k] || ARTISTS.duke).name, artistKey: ARTISTS[k] ? k : 'duke', params: null }
+        : { name: k.name || 'the stranger', artistKey: k.artistKey || 'duke', params: k.params });
+    const phrasesN = Math.max(2, opts.phrases || 4);
+    const beatsPer = opts.beatsPerPhrase || 8;
+    const events = [], phrases = [], log = [];
+    let t = 0, prevEnd = null, quotes = 0;
+    for (let p = 0; p < phrasesN; p++) {
+      const me = who[p % 2], other = who[(p + 1) % 2];
+      const params = { ...(me.params || paramsFromCentroid(ARTISTS[me.artistKey].centroid, rng, 0.12)) };
+      params.callReply = clamp((params.callReply || 0.3) + 0.15, 0, 1);
+      const tk = generateTake(params, me.artistKey, rng);
+      const win = tk.events.filter(e => e.t < beatsPer); // the take's opening phrase is the statement
+      let quoted = false;
+      if (prevEnd && prevEnd.length >= 2) {
+        const mel = win.filter(e => e.voice === 'melody').sort((x, y) => x.t - y.t);
+        if (mel.length >= 3 && rng() < 0.75) {
+          const steps = [];
+          for (let i = 1; i < prevEnd.length; i++) steps.push(prevEnd[i] - prevEnd[i - 1]);
+          let cur = prevEnd[prevEnd.length - 1];
+          mel.slice(0, steps.length + 1).forEach((e, i) => {
+            if (i > 0 && i - 1 < steps.length) { cur += steps[i - 1]; e.midi = cur; }
+          });
+          mel.forEach(e => { e.midi = clamp(e.midi, 55, 86); }); // keep the quote in horn range
+          quoted = true; quotes++;
+          log.push(`${me.name} answers ${other.name} with their own cadence (phrase ${p + 1})`);
+        }
+      }
+      const off = t, suffix = p % 2 ? '2' : '';
+      win.forEach(e => events.push({ t: e.t + off, midi: e.midi, dur: e.dur, vel: e.vel, voice: e.voice === 'comp' ? 'comp' : e.voice + suffix }));
+      phrases.push({ who: me.name, t: off, beats: beatsPer, quoted });
+      const mel = win.filter(e => e.voice === 'melody').sort((x, y) => x.t - y.t);
+      prevEnd = mel.slice(-3).map(e => e.midi);
+      t += beatsPer;
+    }
+    events.sort((x, y) => x.t - y.t || x.midi - y.midi);
+    const song = [
+      `**TRACK: ${who[0].name} × ${who[1].name} — a conversation, grown not written**`,
+      '[MetaData]',
+      `tempo: 96 | phrases: ${phrasesN} × ${beatsPer} beats | banter: ${quotes} quote${quotes === 1 ? '' : 's'}`,
+      '',
+      ...log,
+      '',
+      '(the grid is the notation — two voices, one band)',
+    ].join('\n');
+    return { seed, a: who[0].name, b: who[1].name, events, song, phrases, quotes, banter: +(quotes / (phrasesN - 1)).toFixed(3), beats: t, log };
+  }
+
   /* --------------------------- midi export (SMF) -------------------------- */
   // Type-1 is overkill; a single-track SMF with note events, tempo 96bpm.
   function toMidi(events, tempoBpm) {
@@ -608,5 +681,6 @@
     FEATURES, FIDX, PHI, ARTISTS, PERSONAS, PROGRESSIONS, AXES_HINTS,
     defaultParams, paramsFromCentroid, generateTake, measureTake, extractFeatures,
     critiqueRound, reviseParams, mediumFloor, mediumResidue, effectiveCentroid, runArgument, toMidi, parseAsk,
+    registerArtist, registerPersona, runDuet,
   };
 });

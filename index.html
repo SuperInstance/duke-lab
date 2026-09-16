@@ -205,6 +205,20 @@
   section.fleet { padding: 56px 0; border-top: 1px solid var(--line); }
   .fleet-grid { display: grid; grid-template-columns: 1.2fr .8fr; gap: 28px; margin-top: 26px; }
   @media (max-width: 900px) { .fleet-grid { grid-template-columns: 1fr; } }
+  section.workshop { padding: 56px 0; border-top: 1px solid var(--line); }
+  .shop-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; margin-top: 26px; }
+  @media (max-width: 900px) { .shop-grid { grid-template-columns: 1fr; } }
+  .shop-card { border: 1px solid var(--line); background: var(--panel); padding: 22px; }
+  .shop-card h3 { font-family: var(--display); letter-spacing: .12em; font-size: 15px; }
+  .shop-card .hint { color: var(--paper-dim); font-size: 12.5px; margin: 10px 0 14px; line-height: 1.6; }
+  .shop-card textarea { width: 100%; min-height: 74px; background: var(--bg); color: var(--paper); border: 1px solid var(--line); padding: 10px 12px; font-family: var(--body); font-size: 13px; resize: vertical; }
+  .shop-status { font-family: var(--mono); font-size: 11px; color: var(--brass); margin-top: 10px; min-height: 16px; }
+  section.bandstand { padding: 56px 0; border-top: 1px solid var(--line); }
+  .duet-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-top: 18px; }
+  .duet-row select { background: var(--bg); color: var(--paper); border: 1px solid var(--line); padding: 9px 10px; font-family: var(--mono); font-size: 12px; max-width: 240px; }
+  #banterLog { margin-top: 16px; font-family: var(--mono); font-size: 12px; color: var(--teal); line-height: 1.9; min-height: 20px; }
+  #ledgerLine { margin-top: 16px; font-family: var(--mono); font-size: 11.5px; color: var(--brass); }
+  .opt-row { margin-top: 12px; font-size: 12px; color: var(--paper-dim); display: flex; gap: 8px; align-items: center; }
   .endpoint { font-family: var(--mono); font-size: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); display: flex; gap: 14px; }
   .endpoint .m { color: var(--teal); min-width: 44px; }
   .endpoint .p { color: var(--brass-hi); min-width: 88px; }
@@ -375,6 +389,50 @@
   </div>
 </section>
 
+<section class="workshop">
+  <div class="wrap">
+    <h2>The workshop <span class="thin">— design the musicians</span></h2>
+    <p style="margin-top:14px; color:var(--paper-dim); max-width:640px">The canon is three dead geniuses and a dice engine. Describe a musician in words — the fleet
+      ear turns the description into a measurable 16-feature centroid, and they join the canon as a playable chip.
+      Describe a judge the same way: what it punishes becomes the loss function of the argument.</p>
+    <div class="shop-grid">
+      <div class="shop-card">
+        <h3>DESIGN A MUSICIAN</h3>
+        <div class="hint">"a noir trumpeter who plays in shadows, only answers back, never states first" — becomes a centroid in [0,1]¹⁶, calibrated against what the generator can actually reach.</div>
+        <textarea id="shopMusician" placeholder="describe the musician you hear in your head…"></textarea>
+        <div class="duet-row"><button id="btnMakeMusician" class="primary">bring them to the bandstand</button></div>
+        <div class="shop-status" id="shopMusicianStatus"></div>
+      </div>
+      <div class="shop-card">
+        <h3>VIBE-CODE THE JUDGE</h3>
+        <div class="hint">Not presets — a loss function in words. "a critic who only forgives space, swing feel, and a walking bass" becomes weights over the 16 axes. The argument then answers to them.</div>
+        <textarea id="shopJudge" placeholder="describe what the judge punishes and forgives…"></textarea>
+        <div class="duet-row"><button id="btnMakeJudge" class="primary">seat them at the bench</button></div>
+        <div class="shop-status" id="shopJudgeStatus"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="bandstand">
+  <div class="wrap">
+    <h2>The bandstand <span class="thin">— hear them entertain one another</span></h2>
+    <p style="margin-top:14px; color:var(--paper-dim); max-width:640px">Once a musician has matured — its argument finished, its params evolved — it can sit in with another.
+      They trade 8-bar phrases, and the responder answers with the previous phrase's own cadence three times out of four.
+      The banter score is fitness; it goes in the ledger.</p>
+    <div class="duet-row">
+      <div class="group-label">first voice</div>
+      <select id="duetA"></select>
+      <div class="group-label">answers</div>
+      <select id="duetB"></select>
+      <button id="btnDuet" class="primary">trade fours × 4</button>
+      <button id="btnDuetPlay">▶ play the conversation</button>
+      <button id="btnDuetMidi">export .mid</button>
+    </div>
+    <div id="banterLog"></div>
+  </div>
+</section>
+
 <section class="fleet">
   <div class="wrap">
     <h2>The fleet <span class="thin">behind it</span></h2>
@@ -387,6 +445,11 @@
         <div class="endpoint"><span class="m">POST</span><span class="p">/api/ask</span><span class="d">free-text desire → 16-feature deltas (LLM replaces the lexicon)</span></div>
         <div class="endpoint"><span class="m">POST</span><span class="p">/api/round</span><span class="d">take + critiques → critic’s prose, LLM-polished</span></div>
         <div class="endpoint"><span class="m">GET</span><span class="p">/api/targets</span><span class="d">artist centroids (static JSON today; Vectorize tomorrow)</span></div>
+        <div class="endpoint"><span class="m">POST</span><span class="p">/api/musician</span><span class="d">description → designed musician: {id, name, centroid} → D1 + 16-dim Vectorize</span></div>
+        <div class="endpoint"><span class="m">POST</span><span class="p">/api/judge</span><span class="d">vibe-coded loss function: description → {id, name, weights, floor} → D1</span></div>
+        <div class="endpoint"><span class="m">POST</span><span class="p">/api/learn</span><span class="d">ingest a finished argument; matured params graduate into musician-space</span></div>
+        <div class="endpoint"><span class="m">GET</span><span class="p">/api/ledger</span><span class="d">fleet aggregates: runs, musicians, judges, mean σ, the frontier</span></div>
+        <div class="endpoint"><span class="m">GET</span><span class="p">/api/musicians/similar</span><span class="d">nearest musicians in [0,1]¹⁶ — ghost suggestions, cross-breeding</span></div>
         <div class="endpoint"><span class="m">POST</span><span class="p">/api/compile</span><span class="d">pipe .song through real plainsong → MIDI bytes (stretch)</span></div>
       </div>
       <div>
@@ -396,6 +459,10 @@
           <button id="btnWorkerSave">save</button>
         </div>
         <div id="workerStatus">no worker set — running on honest local dice (seed-verifiable).</div>
+        <div id="ledgerLine">ledger: — (point a worker at the fleet to count the arguments)</div>
+        <label class="opt-row"><input type="checkbox" id="optLedger"> keep my runs out of the fleet ledger</label>
+        <div class="hint" style="margin-top:10px">every generation helps: finished arguments graduate their matured params into
+          musician-space (16-dim native + 768-dim semantic indexes). liberal limits — 45 asks a minute — because most any GAN work teaches the fleet.</div>
       </div>
     </div>
   </div>
