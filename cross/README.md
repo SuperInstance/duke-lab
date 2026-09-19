@@ -57,3 +57,49 @@ node cross/run-cross.js   # ~30s, writes /tmp/cross-result.json
 No pushes from the bench itself. No re-running takes (LISTENS=5 already
 denoises; the round's artifact is the first take, the verdict is on the
 averaged trace — engine.js's own honesty contract).
+
+## V2 — the weighted kernel (2026-09-20): three rulers benched, one accepted
+
+`weighted-kernel.js` implements the metric the v1 diagnosis named: persona
+weights as the kernel's metric, following the critic's chair per round
+(`run.rounds[].persona`). One build, three σ̂ variants, 324 paired runs each
+(`node cross/run-weighted.js`, ~5s, writes `cross-result-weighted.json`):
+
+| σ̂ variant | spearman improved | strict ≤0.9 | duality fails (v1: 29) | swap comb (v1: 8/36) | post-swap sat |
+|---|---|---|---|---|---|
+| run-range (per-axis, this run's traces) | 5/144 | 9 → **92** | 45 | 5/36 | 0.2 |
+| **global-range (v1 scalar + weights)** | **91/144** | 9 → **0** | 31 | 6/36 | **0** |
+| canon-scale (per-axis, across artists) | 2/144 | 9 → 101 | 54 | 4/36 | 1.0 |
+
+**Accepted: `global-range`.** The persona-weighted metric with v1's scalar
+ruler fixes the strict-persona Spearman floor completely (the weightings the
+critic actually judges by now read as the instrument's own), eliminates swap
+saturation, and moves duality only within noise (31 vs 29, with 1 repair and
+3 regressions reported, not hidden).
+
+The two rejected variants are disclosed, not deleted:
+
+- **run-range** fails because the ruler shrinks as the argument settles —
+  per-axis ranges over a converging run collapse, so R collapses against a
+  judge the engine says is satisfied. An instrument whose precision rises
+  exactly when the phenomenon dies measures itself, not the argument.
+- **canon-scale** fails harder: the three artists' centroids sit close in
+  16-D (all features 0..1), per-axis canon ranges are tiny, and the kernel
+  saturates totally (satFrac 1.0). Twist's σ = 0.24·s works because s is the
+  *field's* scale; duke's feature space has no field-scale separation between
+  canons to calibrate against.
+
+**The comb criterion does not transfer — and that is a finding, not a
+failure.** duke's optimizer homes centroid-ward on the new persona's axes
+after a swap (`reviseParams` pulls toward the centroid; persona only re-ranks
+WHICH axes get pulled). There is no supercell/commensuration structure to
+re-open, so the honest post-swap curve is monotone descent under the new
+metric — v1's 8/36 teeth were partly the unweighted kernel's noise
+sensitivity, not structure. Twist keeps the comb (its ground truth has
+revivals); duke's v2 contract is: **no post-swap saturation, weighted-S
+monotone agreement with σ** (the strict-floor result above). `sCombTeeth`
+stays exported for twist-native use.
+
+Tests: `node tests/cross-weighted.test.js` — 18 checks: dead-axis exclusion,
+weight invariance/skew, chair-following, fixed-canon, the acceptance probe on
+a fresh strict-persona sample, determinism.
