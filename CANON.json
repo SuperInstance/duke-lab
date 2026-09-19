@@ -1,0 +1,38 @@
+{
+  "canon": "1",
+  "name": "duke-lab",
+  "mission": "A GAN with words — a generator plays an unheard take, a critic measures it against a sixteen-feature ruler, and the argument converges in golden ratio.",
+  "state": "active",
+  "family": "research",
+  "vessel": "CCC",
+  "born_from": [],
+  "feeds": [
+    "tidepool"
+  ],
+  "owed_by": [
+    "tidepool",
+    "AI-Writings"
+  ],
+  "canonical_docs": [
+    "README.md"
+  ],
+  "ledger": "git-log",
+  "verified": "2026-09-20",
+  "schema": "fleet-canon/1",
+  "generated": "2026-09-20",
+  "generator": "canon-lint --emit-json (CCC)",
+  "agent_facing": {
+    "test_contract": {
+      "cmd": "node --test",
+      "files_glob": "test/*.js"
+    },
+    "key_paths": [
+      "cross/breed/",
+      "recall.js"
+    ],
+    "onboarding": [
+      "Breed trajectories export to tidepool as WAL rows — the ocean is the shared memory, not files.",
+      "recall.js: aligned-round euclidean; breedFromOcean warm-starts from tidepool recall."
+    ]
+  }
+}
