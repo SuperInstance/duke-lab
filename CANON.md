@@ -7,7 +7,7 @@ family: research
 vessel: CCC
 born_from: []
 feeds: [tidepool]
-owed_by: [tidepool]
+owed_by: [tidepool, AI-Writings]
 canonical_docs: [README.md]
 ledger: git-log
 verified: 2026-09-20
