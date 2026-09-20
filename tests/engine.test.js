@@ -99,5 +99,28 @@ const d2 = E.runDuet({ seed: 'b/2', a: 'm:t1', b: 'evans', phrases: 3 });
 t('designed musicians can duet', d2.phrases.length === 3 && d2.a === 'TEST SAILOR');
 t('duet song names both', d2.song.includes('×'));
 
+console.log('== listens knob (σ measurement averaging) ==');
+// the queue-called "takes" knob: how many measurement repetitions the referee
+// averages per round before judging σ. Default 5 = pre-patch behavior, bit-identical.
+const ldDef = E.runArgument({ seed: 'listens/default', maxRounds: 2 });
+const ldExp = E.runArgument({ seed: 'listens/default', maxRounds: 2, listens: 5 });
+t('default (no option) === explicit listens:5', ldDef.listens === 5 &&
+  ldDef.rounds.map(r => r.sigma).join() === ldExp.rounds.map(r => r.sigma).join() &&
+  ldDef.rounds[0].song === ldExp.rounds[0].song);
+const lf1 = E.runArgument({ seed: 'listens/floor', artist: 'monk', persona: 'purist', maxRounds: 0, jitter: 0, listens: 1 });
+const lf80 = E.runArgument({ seed: 'listens/floor', artist: 'monk', persona: 'purist', maxRounds: 0, jitter: 0, listens: 80 });
+t('jitter=0 noise floor drops with averaging', lf80.rounds[0].sigma < lf1.rounds[0].sigma,
+  `listens=1 → ${lf1.rounds[0].sigma}, listens=80 → ${lf80.rounds[0].sigma}`);
+t('floor is bias-bound, not noise-bound: even listens=80 stays ≥ 0.10 (0.08 unreachable by averaging)',
+  lf80.rounds[0].sigma >= 0.10, 'got ' + lf80.rounds[0].sigma);
+t('listens clamped into 1..64', (() => {
+  const c0 = E.runArgument({ seed: 'listens/clamp', maxRounds: 0, listens: 0 });
+  const c99 = E.runArgument({ seed: 'listens/clamp', maxRounds: 0, listens: 999 });
+  return c0.listens === 1 && c99.listens === 64;
+})());
+const ldet1 = E.runArgument({ seed: 'listens/det', maxRounds: 1, listens: 4 });
+const ldet2 = E.runArgument({ seed: 'listens/det', maxRounds: 1, listens: 4 });
+t('listens determinism (same seed + same N → identical σ)', ldet1.rounds.map(r => r.sigma).join() === ldet2.rounds.map(r => r.sigma).join());
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
