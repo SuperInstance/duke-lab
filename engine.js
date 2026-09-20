@@ -519,6 +519,7 @@
       maxRounds = 7,
       convergence = 0.055,
       jitter = 0.34,
+      listens = 5,          // referee measurement repetitions per round — the σ-averaging knob
       nudges = {},          // {round: {feature: delta}}
       personaSwaps = {},    // {round: personaKey}
     } = opts || {};
@@ -533,6 +534,7 @@
     let curPersona = persona;
     let emaSigma = null; // the referee's memory of the argument — EMA, not a fresh ear
     const SIGMA_ALPHA = 0.35;
+    const LISTENS = Math.max(1, Math.min(64, listens | 0)); // referee measurement reps per round
     for (let r = 0; r <= maxRounds; r++) {
       if (personaSwaps[r]) {
         curPersona = personaSwaps[r];
@@ -543,7 +545,6 @@
       // an honest stochastic optimizer, not a vibe). The round's artifact is
       // the first take; the verdict is on the averaged 16-feature trace.
       let acc = null;
-      const LISTENS = 5;
       for (let k = 0; k < LISTENS; k++) {
         const tk = k === 0 ? take : generateTake(params, artist, rng);
         const fk = measureTake(tk.events, artist);
@@ -561,7 +562,7 @@
       params = reviseParams(params, critiques, features, centroid, rng, r, nudge);
       if (nudge) log.push({ round: r + 1, kind: 'nudge', text: `The operator leans in: ${JSON.stringify(nudge)}. The hands adjust.` });
     }
-    return { seed, artist, persona: curPersona, rounds, log, verdict, ideal, effective: centroid };
+    return { seed, artist, persona: curPersona, listens: LISTENS, rounds, log, verdict, ideal, effective: centroid };
   }
   function verdictLine(r, sigma, critiques, persona, floor, conv) {
     const who = PERSONAS[persona].name;
