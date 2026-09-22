@@ -79,8 +79,10 @@ is unreachable by construction**. Tellingly, the engine's own test suite
 
 - One (artist, persona) row measured end-to-end (duke/purist). The
   medium-residue share (99.4%) is a strong structural signal — the residue set
-  is engine-computed, not fitted — but the other eleven rows were not
-  re-descended at honest cost.
+  is engine-computed, not fitted. RESOLVED 09-23: all twelve rows re-descended
+  at honest cost in [SIGMA_HONEST_TABLE.md](SIGMA_HONEST_TABLE.md) — 3/12 cross
+  0.08 in audited expectation (all duke); monk/romantic's "negative transfer"
+  was a cheap-descent artifact (honest gain +0.0332).
 - The calibrated params are a measurement artifact; nothing in the engine
   consumes them. Landing calibration in the walk is the separate (and
   audit-gated) decision PR #9 §4 already describes.
