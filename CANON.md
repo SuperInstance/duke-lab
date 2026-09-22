@@ -6,7 +6,7 @@ state: active
 family: applications
 vessel: unattributed
 born_from: []
-feeds: []
+feeds: [tidepool]
 owed_by: [AI-Writings, hermit, tidepool]
 canonical_docs: [README.md, index.html]
 ledger: git-log
