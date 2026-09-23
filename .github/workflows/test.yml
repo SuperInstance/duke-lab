@@ -16,3 +16,4 @@ jobs:
       - run: node tests/engine.test.js
       - run: node tests/sigma-wall.test.js
       - run: node tests/sigma-axis.test.js
+      - run: node tests/sigma-residue.test.js
