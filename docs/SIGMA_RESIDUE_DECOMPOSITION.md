@@ -8,7 +8,12 @@ effective **and** `generateTake` cannot realize from effective.
 [SIGMA_HONEST_TABLE.md](SIGMA_HONEST_TABLE.md) then re-descended all twelve
 (artist, persona) rows at honest cost and recorded the open sequel: "the
 per-axis read for the nine evans/monk rows is the natural sequel." This note
-is that read. Script: `qa/residue-decomposition.js` — same `calibrateHonest`
+is that read. Script: `qa/residue-decomposition.js` — canonical re-embed:
+the table below was produced by that script, generator sha256
+`2bda64b7f4de35616df1c742fd2e8501ff350ce8398bff0157b0323cff60583f`
+(`tests/doc-table-receipt.test.js` re-derives it — a script change without
+a table+digest refresh in the same commit is RED).
+Same `calibrateHonest`
 referee as the two prior notes (K=32 per evaluation end-to-end, audit K=64),
 then per-axis decomposition of the calibrated expected trace against the
 judgeable canon, split by `mediumResidue()` membership. Deterministic. Full
