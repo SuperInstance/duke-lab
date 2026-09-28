@@ -25,6 +25,20 @@ python3 -m http.server 8923
 Deep links: `?autorun=1` runs the argument on load · `?seed=caravan/9` picks the dice ·
 `?round=4` jumps to a round after the run.
 
+## See it
+
+The page, before and after an argument (screenshots are committed, regenerated
+by the QA harness):
+
+| | |
+|---|---|
+| ![the page at rest](shot-home.png) | ![six rounds later](qa-final.png) |
+| *At rest — sixteen hands, waiting; the Eye blank at distance 1.* | *Converged in 6 rounds — take notation, radar at σ 0.115, referee's log full.* |
+
+![the converged page on a narrow screen](qa-mobile.png)
+*The same converged run on a phone-width viewport — the studio stacks; nothing is hidden.*
+
+
 ## What you can do with it
 
 - **Run the argument** — pick a canon (Duke / Evans / Monk), pick a gardener
@@ -41,6 +55,9 @@ Deep links: `?autorun=1` runs the argument on load · `?seed=caravan/9` picks th
   `.mid` (built in-browser, no dependencies), copy to clipboard.
 - **Verify the honesty** — same seed, same argument, byte for byte. The seed is on
   screen. Re-roll and come back; nothing about the run is a performance.
+- **Average the listen** — σ is a measurement, not a mood: the listens knob
+  re-synthesizes the take N times (1–64) and averages. Averaging kills jitter,
+  not bias — below the floor, more listens change nothing, and the page says so.
 
 ## The engine (`engine.js`)
 
